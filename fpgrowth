@@ -1,0 +1,132 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # PRE-PROCESSING
+
+# In[3]:
+
+
+from collections import Counter , OrderedDict
+from itertools import dropwhile
+from collections import defaultdict
+import time
+
+
+class node:
+    def __init__(self, name, parent = None , count=1 , updateItem = ''):
+        self.name = name
+        self.count = count
+        self.parent = parent
+        self.children = {}
+        self.updateItem = updateItem
+        
+root = node(name='null')
+
+textfile = input("file ") + '.txt'
+support = float(input("support "))
+data = open(textfile , 'r+').read()
+data = data.split('-2\n')
+for i in range(0,len(data)):
+    data[i] = data[i].split(' -1 ')
+    data[i].pop()
+    data[i] = sorted(set(data[i]))
+    
+minsup = support*len(data)
+own = {}
+
+
+# # OPTIMISED FP-GROWTH
+
+# In[4]:
+
+
+def final(data):
+    freq = Counter([x for sublist in data for x in sublist]) 
+    header = defaultdict(set)
+    for item in data:
+        R = root
+        for j in item:
+            if freq[j] >= minsup:
+                if R.children.get(j) is not None:
+                    R.children[j].count+=1
+                    R=R.children[j]
+                else:
+                    R.children[j] = node(name=j , parent = R)
+                    R=R.children[j]
+                    header[j].add(R) 
+    
+    mine('' , freq , header)
+    
+               
+                
+def buildSubHeader(item , subH):
+    subHeader = defaultdict(set)
+    subFreq = Counter()
+    for link in subH[item]:
+        start = link.parent
+        while start.name != 'null':
+
+            if start not in subHeader[start.name]:
+                subHeader[start.name].add(start)
+                
+            
+            if start.updateItem != item:
+                start.updateItem = item
+                start.count = link.count
+            else:
+                start.count = start.count + link.count
+                
+            
+            subFreq.update({start.name: link.count})
+                
+            start = start.parent
+            
+    return subFreq , subHeader
+
+
+
+def mine(x,f,h):
+    for item in sorted(f):    
+        if f[item] >= minsup:
+            res = item + ',' + x
+            own[res] = True
+            subFreq , subHeader = buildSubHeader(item , h)
+            mine(res , subFreq , subHeader)    
+        else:
+            try:
+                del f[item]
+                del h[item]
+            except:
+                xyz=1
+            
+res = 0
+for k in range(10):
+    start = time.perf_counter()
+
+    final(data)
+
+    end = time.perf_counter()
+    res = res + end -start
+
+
+print("time taken" , res/10)
+print('\n')
+print(own)
+
+
+# # STANDARD FP-GROWTH USING mlxtnd LIBRARY 
+
+# In[8]:
+
+
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import fpgrowth
+import pandas as pd
+
+te = TransactionEncoder()
+te_ary = te.fit(data).transform(data)
+df = pd.DataFrame(te_ary, columns=te.columns_)
+
+ans = fpgrowth(df, min_support=support)
+print(ans)
+
